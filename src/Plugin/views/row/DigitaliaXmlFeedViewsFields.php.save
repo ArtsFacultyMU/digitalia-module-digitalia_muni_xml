@@ -1,0 +1,201 @@
+<?php
+
+namespace Drupal\digitalia_muni_xml\Plugin\views\row;
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\views\Plugin\views\row\RowPluginBase;
+use Drupal\Core\Url;
+use Drupal\xmlfeedviews\Plugin\views\row\XmlFeedViewsFields;
+
+
+/**
+ * Renders an XML FEED VIEWS item based on fields.
+ *
+ * @ViewsRow(
+ *   id = "digitaliaxmlfeedviews_fields",
+ *   title = @Translation("Digitalia XML Feed Views fields"),
+ *   help = @Translation("Display fields as XML items."),
+ *   theme = "xmlfeedviews_row",
+ *   display_types = {"feed"}
+ * )
+ */
+class DigitaliaXmlFeedViewsFields extends XmlFeedViewsFields {
+
+  /**
+   * Render.
+   *
+   * @param object $row
+   *   Row object.
+   *
+   * @return array|string
+   *   Returns array or string.
+   */
+  public function render($row) {
+    static $row_index;
+    if (!isset($row_index)) {
+      $row_index = 0;
+    }
+
+    $item = new \stdClass();
+    $item->body_before = isset($this->options['xmlfeedviews_body_before']) ? $this->options['xmlfeedviews_body_before'] : NULL;
+    $item->body = $this->getBodyField($row_index, $this->options['xmlfeedviews_body']);
+    $item->body_after = isset($this->options['xmlfeedviews_body_after']) ? $this->options['xmlfeedviews_body_after'] : NULL;
+
+    $row_index++;
+
+    $build = [
+      '#theme' => $this->themeFunctions(),
+      '#view' => $this->view,
+      '#options' => $this->options,
+      '#row' => $item,
+      '#field_alias' => isset($this->field_alias) ? $this->field_alias : '',
+    ];
+
+    $body = $item->body;
+    $article_id = trim(explode('</id>', explode('<id type="internal" advice="ignore">', $body)[1])[0]);
+    $article = \Drupal\node\Entity\Node::load($article_id);
+ 
+    $titles = $this->getTitles($article);
+    $body = str_replace('###titles###', $titles, $body);
+
+    $authors = $this->getAuthors($article);
+    $body = str_replace('###authors###', $authors, $body);
+
+    $section_id = $article->get('field_section')->getValue()[0]['target_id'];
+    if ($section_id) {
+      $section = \Drupal\taxonomy\Entity\Term::load($section_id)->getName(); 
+      $body = str_replace('###section###', $section, $body);
+    } else {
+      $body = str_replace('###section###', '', $body);
+    }
+    $body = str_replace('###counter###', $row_index, $body);
+
+    $pdf = $this->getPdf($article);
+    $pdf_locale = $this->getLocale($article);
+    $body = str_replace('###article_galley###', $pdf, $body);
+    $body = str_replace('###pdf_locale###', $pdf_locale, $body);
+
+    //dpm(htmlspecialchars($body));
+    $item->body = $body;
+    $item->body_before = str_replace('{{ nid }}', $article_id, $item->body_before); 
+
+    return $build;
+  }
+
+  public function getLocale($article) {
+    $lang = $article->get('field_language')->getValue();
+
+    $languages = [];
+    if (($handle = fopen("/var/www/html/drupal/web/modules/custom/digitalia_muni_xml/localization.csv", "r")) !== FALSE) {
+      while ($line = fgetcsv($handle)) {
+        $languages[$line[1]] = $line[2];
+      }
+      fclose($handle);
+    }
+
+    if (!empty($lang)) {
+      $tid = $lang[0]['target_id'];
+      $term = \Drupal\taxonomy\Entity\Term::load($tid);
+      $code = $term->get('field_code')->getValue()[0]['value']; 
+      return $languages[$code];
+    }
+    return '';
+  }
+
+  public function getPdf($article) {
+    $media_array = \Drupal::entityTypeManager()->getStorage('media')->loadByProperties(['field_media_of' => $article->id(), 'bundle' => 'document']);
+    if (empty($media_array)) {
+      return '';
+    }
+    $media = reset($media_array);
+    $fid = $media->get('field_media_document')->getValue()[0]['target_id'];
+    $result = '<id type="internal" advice="ignore">'.$fid.'</id><name locale="###pdf_locale###">PDF</name><seq>0</seq><remote src="';
+    $file = \Drupal\file\Entity\File::load($fid);
+    $url = 'http://digilib-devel.phil.muni.cz'.$file->createFileUrl();
+    $result = $result.$url.'" />';
+    return $result;
+  }
+
+  public function getAuthors($article) {
+    $authors = $article->get('field_author')->getValue();
+    $result = '';
+    foreach ($authors as $item) {
+      $author = \Drupal\node\Entity\Node::load($item['target_id']);
+      if ($author !== NULL) {
+        $name = $author->get('field_name_structured')->getValue();
+        $author_id = $author->get('field_author_id')->getValue()[0]['target_id'];
+        $given = $name[0]['given'];
+        $family = $name[0]['family'];
+        $result = $result.'<author include_in_browse="true" user_group_ref="Author" seq="1" id="'.$author_id.'">';
+
+        $serial_languages = $this->getSerialLanguages($article);
+
+        foreach ($serial_languages as $lang) {
+          $result = $result.'<givenname locale="'.$lang.'">'.$given.'</givenname>';
+        }
+
+        foreach ($serial_languages as $lang) {
+          $result = $result.'<familyname locale="'.$lang.'">'.$family.'</familyname>';
+        }
+        $result = $result.'<email>email@journals.phil.muni.cz</email></author>';
+      }
+    }
+
+    return $result;
+  }
+
+  public function getTitles($article) {
+    $main_title[] = $article->get('field_title_main')->getValue()[0];
+    $variant_titles = $article->get('field_variant_title')->getValue();
+    $titles = array_merge($main_title, $variant_titles);
+    $result = '';
+
+    $languages = [];
+    if (($handle = fopen("/var/www/html/drupal/web/modules/custom/digitalia_muni_xml/localization.csv", "r")) !== FALSE) {
+      while ($line = fgetcsv($handle)) {
+        $languages[$line[1]] = $line[2];
+      }
+      fclose($handle);
+    }
+
+    $primary = [];
+    $serial_languages = $this->getSerialLanguages($article);
+    foreach ($serial_languages as $lang) {
+      $primary[$lang] = ''; 
+    }
+
+    foreach ($titles as &$title) {
+      $lang = $languages[$title['second']];
+      $title['second'] = $lang;
+      if (is_set($primary[$lang]]) {
+        $primary[$lang] = $title['first'];
+      }
+    }
+    dpm($primary);
+
+    foreach ($titles as $title) {
+      $result = $result.'<title locale="'.$title['second'].'">'.$title['first']."</title>";
+    }
+    return $result;
+  }
+
+  public function getSerialLanguages($article) {
+    $issue_id = $article->get('field_member_of')->getValue()[0]['target_id'];
+    $issue = \Drupal\node\Entity\Node::load($issue_id);
+    if ($serial_id = $issue->get('field_member_of')->getValue()[0]['target_id']) {
+      $serial = \Drupal\node\Entity\Node::load($serial_id);
+      $handle = $serial->get('field_handle')->getValue()[0]['value'];
+      if (($csv = fopen("/var/www/html/drupal/web/modules/custom/digitalia_muni_xml/languages.csv", "r")) !== FALSE) {
+        while ($line = fgetcsv($csv)) {
+          if ($line[0] == $handle) {
+            $lang = $line[1];
+            break;
+          }
+        }
+        fclose($csv);
+        return explode('|', $lang);
+      }
+    }
+    return [];
+  }
+}

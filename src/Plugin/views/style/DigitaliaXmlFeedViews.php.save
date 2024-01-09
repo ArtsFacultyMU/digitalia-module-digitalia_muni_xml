@@ -1,0 +1,59 @@
+<?php
+
+namespace Drupal\digitalia_muni_xml\Plugin\views\style;
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\views\Plugin\views\style\StylePluginBase;
+use Drupal\xmlfeedviews\Plugin\views\style\XmlFeedViews;
+
+/**
+ * Default style plugin to render an OPML feed.
+ *
+ * @ingroup views_style_plugins
+ *
+ * @ViewsStyle(
+ *   id = "digitaliaxmlfeedviews",
+ *   title = @Translation("Digitalia XML Feed Views"),
+ *   help = @Translation("Generates an XML feed from a view."),
+ *   theme = "xmlfeedviews",
+ *   display_types = {"feed"}
+ * )
+ */
+class DigitaliaXmlFeedViews extends XmlFeedViews {
+
+  /**
+   * Get XML feed views header.
+   *
+   * @return string
+   *   The string containing the description with the tokens replaced.
+   */
+  public function getHeader() {
+    $header = $this->options['xmlfeedviews_head'];
+    // islandora_muni
+    $issue = $this->tokenizeValue("{{ field_member_of }}", 0);
+    $volume = $this->tokenizeValue("{{ field_member_of_1 }}", 0);
+    $year = $this->tokenizeValue("{{ field_publication_year }}", 0);
+    $date = $this->tokenizeValue("{{ field_publication_date }}", 0);
+    //replace with values
+    $header = str_replace("{{ field_member_of }}", $issue, $header);
+    $header = str_replace("{{ field_member_of_1 }}", $volume, $header);
+    $header = str_replace("{{ field_publication_year }}", $year, $header);
+    $header = str_replace("{{ field_publication_date }}", $date, $header);
+    $header = str_replace("{{test}}", "<date_published>2022-11-09</date_published>", $header);
+    $this->getSections();
+    //dpm(htmlspecialchars($header));
+   // return $header = $this->options['xmlfeedviews_head'];
+    return $header;
+  }
+
+  public function getSections() {
+    $issue_id = $this->tokenizeValue("{{ nid_1 }}", 0);
+    $issue = $node = \Drupal\node\Entity\Node::load($issue_id);
+    $articles = \Drupal::entityTypeManager()->getStorage('node')->loadByProperties(['field_member_of' => $issue->id()]);
+    $sections = [];
+    foreach ($articles as $article) {
+      dpm($article->get('field_section')->getValue());
+    }
+  }
+}

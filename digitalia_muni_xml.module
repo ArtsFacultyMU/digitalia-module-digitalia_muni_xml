@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for digitalia_muni_xml module.
+ *
+ * @DCG
+ * This file is no longer required in Drupal 8.
+ * @see https://www.drupal.org/node/2217931
+ */
+function digitalia_muni_xml_node_presave(Drupal\Core\Entity\EntityInterface $node) {
+
+  if ($node->getType() != 'article' or !$node->isPublished()) {
+    return;
+  }
+
+  if (!$node->hasField('field_ojs_version') or !$node->hasField('field_ojs_last_change') or !$node->hasField('field_ojs_source')) {
+    return;
+  }
+
+  $ojs_source = $node->get('field_ojs_source')->getValue();
+  $version = $node->get('field_ojs_version')->getValue();
+
+  if ($node->original and $node->original->isPublished()) {
+    $changed = array_keys(\Drupal\Component\Utility\DiffArray::diffAssocRecursive($node->toArray(), $node->original->toArray()));
+    $ojs_fields = ['field_title_main', 'field_variant_title', 'field_section', 'field_rights', 'field_keywords',
+'field_pagination', 'field_doi', 'field_author', 'field_description', 'field_references'];
+
+    foreach ($changed as $field) {
+      if (in_array($field, $ojs_fields)) {
+        $node->field_ojs_last_change = date("Y-m-d");
+
+        if (empty($version)) {
+          if (!empty($ojs_source) and $ojs_source[0]['value']) {
+            $new_version = 3;
+          } else {
+            $new_version = 2;
+          }
+        } else {
+          $new_version = $version[0]['value'] + 1;
+        }
+
+        $node->field_ojs_version = $new_version;
+        \Drupal::logger('digitalia_muni_xml')->notice('Article '.$node->id().': OJS version changed to: '.$new_version);
+        return;
+      }
+    }
+
+  }
+
+  if (empty($version)) {
+    if (!empty($ojs_source) and $ojs_source[0]['value']) {
+      $node->field_ojs_version = 2;
+    } else {
+      $node->field_ojs_version = 1;
+    }
+  }
+}

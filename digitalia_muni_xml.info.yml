@@ -1,0 +1,6 @@
+name: digitalia_muni_xml
+type: module
+description: The description.
+package: custom
+core: 8.x
+core_version_requirement: ^8 || ^9
