@@ -91,7 +91,7 @@ class DigitaliaXmlFeedViewsFields extends XmlFeedViewsFields {
     $section_field = $article->get('field_section')->getValue();
     if (!empty($section_field) and $section_id=$section_field[0]['target_id']) {
       $section = \Drupal\taxonomy\Entity\Term::load($section_id)->getName(); 
-      $body = str_replace('###section###', $section, $body);
+      $body = str_replace('###section###', $this->clean($section), $body);
     } else {
       $body = str_replace('###section###', 'Hidden', $body);
     }

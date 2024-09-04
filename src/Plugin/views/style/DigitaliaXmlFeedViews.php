@@ -145,6 +145,7 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
     $serial_languages = $this->getSerialLanguages($issue);
     foreach ($sections as $s => $p) {
       $name = explode('###', $s)[0];
+      $name = $this->clean($name);
       $tid = explode('###', $s)[1];
       $result = $result.'<section ref="'.$tid.'" seq="'.$seq.'"><id type="internal" advice="ignore">'.$tid.'</id>';
       foreach ($serial_languages as $lang) {
@@ -158,5 +159,11 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
       $seq += 1;
     }
     return $result;
+  }
+
+  public function clean($text) {
+    $characters = array('<', '>', '&');
+    $html_entities = array('&lt;', '&gt;', '&amp;');
+    return str_replace($characters, $html_entities, $text);
   }
 }
