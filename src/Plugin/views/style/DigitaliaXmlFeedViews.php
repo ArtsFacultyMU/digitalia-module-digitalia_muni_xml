@@ -162,8 +162,6 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
   }
 
   public function clean($text) {
-    $characters = array('<', '>', '&');
-    $html_entities = array('&lt;', '&gt;', '&amp;');
-    return str_replace($characters, $html_entities, $text);
+    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
   }
 }

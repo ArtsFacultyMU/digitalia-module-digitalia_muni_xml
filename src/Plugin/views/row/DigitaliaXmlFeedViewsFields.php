@@ -145,6 +145,7 @@ class DigitaliaXmlFeedViewsFields extends XmlFeedViewsFields {
     foreach ($serial_languages as $lang) {
       $result[$lang] = '';
     }
+
     foreach ($keywords as $kw) {
       $lang = $locales[$kw['rel_type']];
       $tid = $kw['target_id'];
@@ -326,8 +327,6 @@ class DigitaliaXmlFeedViewsFields extends XmlFeedViewsFields {
   }
 
   public function clean($text) {
-    $characters = array('<', '>', '&');
-    $html_entities = array('&lt;', '&gt;', '&amp;');
-    return str_replace($characters, $html_entities, $text);
+    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
   }
 }
