@@ -238,7 +238,10 @@ class DigitaliaXmlFeedViewsFields extends XmlFeedViewsFields {
           $serial_title = $serial->getTitle();
           $result = $result.'<author include_in_browse="true" user_group_ref="Author" seq="1" id="'.$serial_id.'">';
           foreach ($serial_languages as $lang) {
-            $result = $result.'<givenname locale="'.$lang.'">Journal</givenname><familyname locale="'.$lang.'">'.$serial_title.'</familyname>';
+            $result = $result.'<givenname locale="'.$lang.'">Journal</givenname>';
+          }
+          foreach ($serial_languages as $lang) {
+            $result = $result.'<familyname locale="'.$lang.'">'.$serial_title.'</familyname>';
           }
           $result = $result.'<email>email@journals.phil.muni.cz</email></author>';
         }
