@@ -119,6 +119,8 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
   }
 
   public function getSections($issue) {
+    $locales = $this->getLocales();
+
     $articles = \Drupal::entityTypeManager()->getStorage('node')->loadByProperties(['field_member_of' => $issue->id(), 'status' => 1]);
     $sections = [];
     foreach ($articles as $article) {
@@ -142,21 +144,52 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
 
     $seq = 1;
     $serial_languages = $this->getSerialLanguages($issue);
-    foreach ($sections as $tid => $p) {
+    foreach ($sections as $tid => $page) {
       $section = Term::load($tid);
       $name = $this->clean($section->getName());
+
       $result = $result.'<section ref="'.$tid.'" seq="'.$seq.'"><id type="internal" advice="ignore">'.$tid.'</id>';
+
       foreach ($serial_languages as $lang) {
-        $result = $result.'<abbrev locale="'.$lang.'">'.$name.'</abbrev>';
+        $translated_name = $name;
+        if ($section_languages = $section->get('field_section_languages')->getValue()) {
+          foreach ($section_languages as $section_lang) {
+            if ($section_lang["second"] == 'eng') {
+              $translated_name = $section_lang["first"];
+            }
+          }
+        }
+        $result = $result.'<abbrev locale="'.$lang.'">'.$translated_name.'</abbrev>';
       }
+
       foreach ($serial_languages as $lang) {
-        $result = $result.'<title locale="'.$lang.'">'.$name.'</title>';
+        $translated_name = $name; 
+        if ($section_languages = $section->get('field_section_languages')->getValue()) {
+          foreach ($section_languages as $section_lang) {
+            if ($locales[$section_lang["second"]] == $lang) {
+              $translated_name = $section_lang["first"];
+            }
+          }
+        }
+        $result = $result.'<title locale="'.$lang.'">'.$translated_name.'</title>';
       }
       $result = $result.'</section>';
 
       $seq += 1;
     }
     return $result;
+  }
+
+  public function getLocales() {
+    $locales = [];
+    if (($handle = fopen("/var/www/html/drupal/web/modules/custom/digitalia_muni_xml/localization.csv", "r")) !== FALSE) {
+      while ($line = fgetcsv($handle)) {
+        $locales[$line[1]] = $line[2];
+      }
+      fclose($handle);
+      return $locales;
+    }
+    return [];
   }
 
   public function clean($text) {
