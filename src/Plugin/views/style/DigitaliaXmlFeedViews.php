@@ -6,6 +6,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\views\Plugin\views\style\StylePluginBase;
 use Drupal\xmlfeedviews\Plugin\views\style\XmlFeedViews;
+use Drupal\taxonomy\Entity\Term;
 
 /**
  * Default style plugin to render an OPML feed.
@@ -121,14 +122,12 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
     $articles = \Drupal::entityTypeManager()->getStorage('node')->loadByProperties(['field_member_of' => $issue->id(), 'status' => 1]);
     $sections = [];
     foreach ($articles as $article) {
-      if ($section_field = $article->get('field_section')->getValue()) {
-        $section = \Drupal\taxonomy\Entity\Term::load($section_field[0]['target_id']);
-        $name = $section->getName().'###'.$section_field[0]['target_id'];
-        $page = $article->get('field_pagination_from')->getValue()[0]['value'];
-        if (isset($sections[$name])) {
-          $sections[$name] = min($sections[$name], $page);
+      if ($tid = $article->get('field_section')->target_id) {
+        $page = $article->get('field_pagination_from')->value;
+        if (isset($sections[$tid])) {
+          $sections[$tid] = min($sections[$name], $page);
         } else {
-          $sections[$name] = $page;
+          $sections[$tid] = $page;
         }
       }
     }
@@ -143,10 +142,9 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
 
     $seq = 1;
     $serial_languages = $this->getSerialLanguages($issue);
-    foreach ($sections as $s => $p) {
-      $name = explode('###', $s)[0];
-      $name = $this->clean($name);
-      $tid = explode('###', $s)[1];
+    foreach ($sections as $tid => $p) {
+      $section = Term::load($tid);
+      $name = $this->clean($section->getName());
       $result = $result.'<section ref="'.$tid.'" seq="'.$seq.'"><id type="internal" advice="ignore">'.$tid.'</id>';
       foreach ($serial_languages as $lang) {
         $result = $result.'<abbrev locale="'.$lang.'">'.$name.'</abbrev>';
