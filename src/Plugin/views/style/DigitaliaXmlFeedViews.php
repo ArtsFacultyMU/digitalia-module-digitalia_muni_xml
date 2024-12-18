@@ -125,7 +125,7 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
       if ($tid = $article->get('field_section')->target_id) {
         $page = $article->get('field_pagination_from')->value;
         if (isset($sections[$tid])) {
-          $sections[$tid] = min($sections[$name], $page);
+          $sections[$tid] = min($sections[$tid], $page);
         } else {
           $sections[$tid] = $page;
         }
