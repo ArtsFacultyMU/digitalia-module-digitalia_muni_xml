@@ -154,7 +154,7 @@ class DigitaliaXmlFeedViews extends XmlFeedViews {
         $translated_name = $name;
         if ($section_languages = $section->get('field_section_languages')->getValue()) {
           foreach ($section_languages as $section_lang) {
-            if ($section_lang["second"] == 'eng') {
+            if ($locales[$section_lang["second"]] == $lang) {
               $translated_name = $section_lang["first"];
             }
           }

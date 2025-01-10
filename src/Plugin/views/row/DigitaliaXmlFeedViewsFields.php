@@ -88,13 +88,20 @@ class DigitaliaXmlFeedViewsFields extends XmlFeedViewsFields {
     $authors = $this->getAuthors($article, $serial_languages);
     $body = str_replace('###authors###', $authors, $body);
 
-    $section_field = $article->get('field_section')->getValue();
-    if (!empty($section_field) and $section_id=$section_field[0]['target_id']) {
-      $section = \Drupal\taxonomy\Entity\Term::load($section_id)->getName(); 
-      $body = str_replace('###section###', $this->clean($section), $body);
-    } else {
-      $body = str_replace('###section###', 'Hidden', $body);
+    $section = $article->get('field_section')->entity;
+    $section_ref = 'Hidden';
+    if ($section) {
+      $section_ref = $section->getName();
+      if ($section_languages = $section->get('field_section_languages')->getValue()) {
+        foreach ($section_languages as $section_lang) {
+          if ($section_lang["second"] == 'eng') {
+            $section_ref = $section_lang["first"];
+          }
+        }
+      }
     }
+    $body = str_replace('###section###', $this->clean($section_ref), $body);
+
     $body = str_replace('###counter###', $row_index, $body);
 
     $pdf = $this->getPdf($article);
